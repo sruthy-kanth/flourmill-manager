@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased font-malayalam;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Custom smooth scroll and scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Malayalam font styling enhancements */
+.font-ml {
+  font-family: 'Noto Sans Malayalam', 'Manjari', 'Gayathri', sans-serif;
+  line-height: 1.6;
+}
+
+/* Number display with Indian formatting feel */
+.font-numeric {
+  font-family: 'Outfit', -apple-system, sans-serif;
+  font-feature-settings: "tnum";
+}
+
+/* Card glass & shadow effects */
+.glass-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.touch-action-manipulation {
+  touch-action: manipulation;
+}
