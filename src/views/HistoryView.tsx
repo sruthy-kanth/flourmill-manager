@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
   Filter, 
@@ -6,9 +7,9 @@ import {
   Edit3, 
   Trash2, 
   Receipt, 
-  RotateCcw,
-  X,
-  Plus
+  RotateCcw, 
+  X, 
+  Plus 
 } from 'lucide-react';
 import type { Transaction, Operation } from '../types';
 import { 
@@ -28,7 +29,6 @@ interface HistoryViewProps {
     notes?: string;
     phone?: string;
   }) => Promise<void>;
-  onGoToNewEntry: () => void;
   onRequestConfirmDelete: (txId: string) => void;
 }
 
@@ -36,9 +36,10 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   transactions,
   operations,
   onEditTransaction,
-  onGoToNewEntry,
   onRequestConfirmDelete,
 }) => {
+  const navigate = useNavigate();
+
   // Filter States
   const [searchPhone, setSearchPhone] = useState('');
   const [selectedOperationId, setSelectedOperationId] = useState('');
@@ -139,7 +140,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
         </div>
 
         <button
-          onClick={onGoToNewEntry}
+          onClick={() => navigate('/new-entry')}
           className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-sm font-bold shadow-sm font-ml"
         >
           <Plus className="w-4 h-4" />
@@ -244,7 +245,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-bold text-base text-slate-900 font-ml">
-                      {tx.operation?.name_ml || 'മില്ല് സേവനം'}
+                      {tx.operation?.name_ml || 'സേവനം'}
                     </h4>
                     <span className="text-xs text-slate-500 font-ml">
                       {formatMalayalamDate(tx.transaction_date)}
@@ -261,13 +262,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                   <div>
                     <span className="text-slate-400 block">അളവ്:</span>
                     <span className="font-bold text-slate-800 font-numeric">
-                      {formatQuantity(tx.quantity, tx.operation?.unit || 'കിലോ')}
+                      {formatQuantity(tx.quantity, tx.operation?.unit || 'യൂണിറ്റ്')}
                     </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block">നിരക്ക്:</span>
                     <span className="font-bold text-slate-800 font-numeric">
-                      {formatCurrency(tx.unit_price)} / {tx.operation?.unit || 'കിലോ'}
+                      {formatCurrency(tx.unit_price)} / {tx.operation?.unit || 'യൂണിറ്റ്'}
                     </span>
                   </div>
                 </div>
@@ -337,7 +338,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       {tx.operation?.name_ml || 'സേവനം'}
                     </td>
                     <td className="py-3.5 px-4 text-right font-semibold text-slate-800 font-numeric">
-                      {formatQuantity(tx.quantity, tx.operation?.unit || 'കിലോ')}
+                      {formatQuantity(tx.quantity, tx.operation?.unit || 'യൂണിറ്റ്')}
                     </td>
                     <td className="py-3.5 px-4 text-right font-medium text-slate-600 font-numeric">
                       {formatCurrency(tx.unit_price)}
@@ -402,7 +403,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    അളവ് ({editingTransaction.operation?.unit || 'കിലോ'})
+                    അളവ് ({editingTransaction.operation?.unit || 'യൂണിറ്റ്'})
                   </label>
                   <input
                     type="number"

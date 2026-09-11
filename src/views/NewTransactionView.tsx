@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   Calculator, 
   Phone, 
@@ -15,7 +16,6 @@ import confetti from 'canvas-confetti';
 
 interface NewTransactionViewProps {
   operations: Operation[];
-  preSelectedOperationId?: string | null;
   onSubmitTransaction: (data: {
     operation_id: string;
     quantity: number;
@@ -25,21 +25,20 @@ interface NewTransactionViewProps {
     phone?: string;
     notes?: string;
   }) => Promise<void>;
-  onCancel: () => void;
-  onSuccessNavigate: () => void;
 }
 
 export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
   operations,
-  preSelectedOperationId,
   onSubmitTransaction,
-  onCancel,
-  onSuccessNavigate,
 }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const opFromQuery = searchParams.get('op');
+
   const activeOperations = operations.filter(op => op.is_active);
 
   const [formData, setFormData] = useState<TransactionFormData>({
-    operation_id: preSelectedOperationId || (activeOperations[0]?.id || ''),
+    operation_id: opFromQuery || (activeOperations[0]?.id || ''),
     transaction_date: getTodayDateString(),
     quantity: '',
     unit_price: '',
@@ -58,10 +57,11 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
     total: number;
   } | null>(null);
 
-  // When operation selection changes, load its default unit_price
+  // When operation selection changes or query param is provided, load its default unit_price
   useEffect(() => {
-    if (preSelectedOperationId) {
-      const op = operations.find(o => o.id === preSelectedOperationId);
+    const targetOpId = opFromQuery || formData.operation_id || activeOperations[0]?.id;
+    if (targetOpId) {
+      const op = operations.find(o => o.id === targetOpId);
       if (op) {
         setFormData(prev => {
           const qty = typeof prev.quantity === 'number' ? prev.quantity : Number(prev.quantity) || 0;
@@ -75,20 +75,11 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
           };
         });
       }
-    } else if (activeOperations.length > 0 && !formData.operation_id) {
-      const first = activeOperations[0];
-      setFormData(prev => ({
-        ...prev,
-        operation_id: first.id,
-        unit_price: first.price_per_unit,
-      }));
     }
-  }, [preSelectedOperationId, operations]);
+  }, [opFromQuery, operations]);
 
-  // Selected Operation Object
   const selectedOperation = operations.find(op => op.id === formData.operation_id);
 
-  // Handle operation change
   const handleOperationSelect = (opId: string) => {
     const op = operations.find(o => o.id === opId);
     if (!op) return;
@@ -105,7 +96,6 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
     }));
   };
 
-  // Handle quantity change
   const handleQuantityChange = (val: string) => {
     const num = val === '' ? '' : Math.max(0, parseFloat(val));
     const price = typeof formData.unit_price === 'number' ? formData.unit_price : (Number(formData.unit_price) || 0);
@@ -119,7 +109,6 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
     setErrorMessage(null);
   };
 
-  // Handle unit price change
   const handleUnitPriceChange = (val: string) => {
     const priceNum = val === '' ? '' : Math.max(0, parseFloat(val));
     const qty = typeof formData.quantity === 'number' ? formData.quantity : (Number(formData.quantity) || 0);
@@ -132,7 +121,6 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
     }));
   };
 
-  // Quick quantity adder (+1, +2, +5, +10, +25)
   const addQuickQuantity = (increment: number) => {
     const current = typeof formData.quantity === 'number' ? formData.quantity : (Number(formData.quantity) || 0);
     const newQty = Number((current + increment).toFixed(2));
@@ -163,7 +151,6 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
     e.preventDefault();
     setErrorMessage(null);
 
-    // Validations
     if (!formData.operation_id) {
       setErrorMessage('ദയവായി ഒരു സേവനം തിരഞ്ഞെടുക്കുക.');
       return;
@@ -186,7 +173,6 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
       return;
     }
 
-    // Phone validation if entered
     if (formData.phone && formData.phone.trim().length > 0) {
       const cleanPhone = formData.phone.replace(/\D/g, '');
       if (cleanPhone.length < 10 && cleanPhone.length !== 10) {
@@ -209,7 +195,6 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
         notes: formData.notes.trim() || undefined,
       });
 
-      // Confetti feedback
       try {
         confetti({
           particleCount: 50,
@@ -226,9 +211,8 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
       });
       setShowSuccessCard(true);
 
-      // Reset form values for next entry
       setFormData(prev => ({
-        operation_id: prev.operation_id, // keep current operation selected
+        operation_id: prev.operation_id,
         transaction_date: getTodayDateString(),
         quantity: '',
         unit_price: selectedOperation?.price_per_unit ?? prev.unit_price,
@@ -263,7 +247,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={onCancel}
+            onClick={() => navigate('/')}
             className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -307,7 +291,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
               </div>
             </div>
             <button
-              onClick={onSuccessNavigate}
+              onClick={() => navigate('/history')}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs"
             >
               പട്ടിക കാണുക
@@ -332,33 +316,46 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
           <label className="block text-sm font-bold text-slate-800 mb-2 font-ml">
             സേവനം / പ്രവർത്തനം <span className="text-rose-500">*</span>
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {activeOperations.map((op) => {
-              const isSelected = formData.operation_id === op.id;
-              return (
-                <button
-                  type="button"
-                  key={op.id}
-                  onClick={() => handleOperationSelect(op.id)}
-                  className={`p-3 rounded-xl border text-left transition-all font-ml flex flex-col justify-between touch-action-manipulation ${
-                    isSelected
-                      ? 'bg-amber-500 border-amber-600 text-white shadow-md shadow-amber-500/30 scale-[1.02]'
-                      : 'bg-slate-50/70 border-slate-200 hover:border-amber-300 text-slate-800 hover:bg-amber-50/50'
-                  }`}
-                >
-                  <span className={`font-bold text-sm leading-snug ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                    {op.name_ml}
-                  </span>
-                  <div className="mt-2 flex items-center justify-between text-xs">
-                    <span className={isSelected ? 'text-amber-100 font-numeric' : 'text-slate-500 font-numeric'}>
-                      {formatCurrency(op.price_per_unit)} / {op.unit}
+          {activeOperations.length === 0 ? (
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center font-ml text-xs text-slate-500">
+              സേവനങ്ങളൊന്നും ലഭ്യമല്ല.{' '}
+              <button 
+                type="button" 
+                onClick={() => navigate('/operations')}
+                className="text-amber-700 font-bold underline"
+              >
+                ഇവിടെ ചേർക്കുക
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {activeOperations.map((op) => {
+                const isSelected = formData.operation_id === op.id;
+                return (
+                  <button
+                    type="button"
+                    key={op.id}
+                    onClick={() => handleOperationSelect(op.id)}
+                    className={`p-3 rounded-xl border text-left transition-all font-ml flex flex-col justify-between touch-action-manipulation ${
+                      isSelected
+                        ? 'bg-amber-500 border-amber-600 text-white shadow-md shadow-amber-500/30 scale-[1.02]'
+                        : 'bg-slate-50/70 border-slate-200 hover:border-amber-300 text-slate-800 hover:bg-amber-50/50'
+                    }`}
+                  >
+                    <span className={`font-bold text-sm leading-snug ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                      {op.name_ml}
                     </span>
-                    {isSelected && <Check className="w-4 h-4 text-white stroke-[3]" />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                    <div className="mt-2 flex items-center justify-between text-xs">
+                      <span className={isSelected ? 'text-amber-100 font-numeric' : 'text-slate-500 font-numeric'}>
+                        {formatCurrency(op.price_per_unit)} / {op.unit}
+                      </span>
+                      {isSelected && <Check className="w-4 h-4 text-white stroke-[3]" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* 2. അളവും നിരക്കും (Quantity & Rate Inputs) */}
@@ -367,7 +364,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm font-bold text-slate-800 font-ml">
-                അളവ് ({selectedOperation?.unit || 'കിലോ'}) <span className="text-rose-500">*</span>
+                അളവ് ({selectedOperation?.unit || 'യൂണിറ്റ്'}) <span className="text-rose-500">*</span>
               </label>
               <span className="text-[11px] text-slate-400 font-ml">കൃത്യമായ അളവ് നൽകുക</span>
             </div>
@@ -384,7 +381,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
                 autoFocus
               />
               <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 pointer-events-none font-ml">
-                {selectedOperation?.unit || 'കിലോ'}
+                {selectedOperation?.unit || ''}
               </div>
             </div>
 
@@ -397,7 +394,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
                   onClick={() => setExactQuantity(val)}
                   className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-700 transition-colors font-numeric"
                 >
-                  {val} {selectedOperation?.unit || 'കിലോ'}
+                  {val} {selectedOperation?.unit || ''}
                 </button>
               ))}
               <button
@@ -421,7 +418,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-sm font-bold text-slate-800 font-ml">
-                നിരക്ക് (1 {selectedOperation?.unit || 'കിലോ'}ന്)
+                നിരക്ക് (1 {selectedOperation?.unit || 'യൂണിറ്റ്'}ന്)
               </label>
               <span className="text-[11px] text-amber-700 font-ml">മാറ്റങ്ങൾ വരുത്താം</span>
             </div>
@@ -507,7 +504,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
           </div>
         </div>
 
-        {/* 5. ആകെ തുക & CALCULATOR DISPLAY (PRICE CALCULATION) */}
+        {/* 5. ആകെ തുക & CALCULATOR DISPLAY */}
         <div className="p-5 rounded-2xl bg-amber-50/80 border-2 border-amber-300/80 space-y-2">
           <div className="flex items-center justify-between text-xs text-amber-900 font-ml">
             <span className="flex items-center gap-1.5 font-bold">
@@ -515,7 +512,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
               തുക കണക്കുകൂട്ടൽ:
             </span>
             <span className="font-numeric">
-              {formData.quantity || 0} {selectedOperation?.unit || 'കിലോ'} × {formatCurrency(Number(formData.unit_price) || 0)}
+              {formData.quantity || 0} {selectedOperation?.unit || ''} × {formatCurrency(Number(formData.unit_price) || 0)}
             </span>
           </div>
 
@@ -533,7 +530,7 @@ export const NewTransactionView: React.FC<NewTransactionViewProps> = ({
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-3">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => navigate('/')}
             className="w-full sm:w-auto px-5 py-3 rounded-2xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-sm font-ml transition-colors"
           >
             റദ്ദാക്കുക

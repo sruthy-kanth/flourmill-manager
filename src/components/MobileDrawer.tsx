@@ -1,29 +1,37 @@
 import React from 'react';
-import { X, Layers, Settings, Database, ShieldCheck } from 'lucide-react';
-import type { ActiveTab } from '../types';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { X, Layers, Settings, Database, ShieldCheck, Home, PlusCircle, Receipt, BarChart3 } from 'lucide-react';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 interface MobileDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
   millName: string;
 }
 
 export const MobileDrawer: React.FC<MobileDrawerProps> = ({
   isOpen,
   onClose,
-  activeTab,
-  setActiveTab,
   millName,
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   if (!isOpen) return null;
 
-  const handleSelect = (tab: ActiveTab) => {
-    setActiveTab(tab);
+  const handleNavigate = (path: string) => {
+    navigate(path);
     onClose();
   };
+
+  const navItems = [
+    { to: '/', label: 'ഹോം (Dashboard)', icon: Home },
+    { to: '/new-entry', label: 'പുതിയ എൻട്രി', icon: PlusCircle },
+    { to: '/history', label: 'ഇടപാടുകൾ (History)', icon: Receipt },
+    { to: '/statement', label: 'സ്റ്റേറ്റ്മെന്റ് (Monthly)', icon: BarChart3 },
+    { to: '/operations', label: 'സേവനങ്ങൾ & നിരക്കുകൾ', icon: Layers },
+    { to: '/settings', label: 'ക്രമീകരണങ്ങൾ (Settings)', icon: Settings },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
@@ -46,7 +54,7 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
                 <h3 className="font-bold text-slate-900 text-base leading-tight font-ml">
                   {millName || 'മില്ല് മാനേജ്‌മെന്റ്'}
                 </h3>
-                <p className="text-[11px] text-amber-700 font-ml">മെനു & ക്രമീകരണങ്ങൾ</p>
+                <p className="text-[11px] text-amber-700 font-ml">മെനു & നാവിഗേഷൻ</p>
               </div>
             </div>
             <button
@@ -59,34 +67,32 @@ export const MobileDrawer: React.FC<MobileDrawerProps> = ({
           </div>
 
           {/* Nav List */}
-          <div className="p-4 space-y-2 font-ml">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2">
-              സേവനങ്ങളും ക്രമീകരണങ്ങളും
+          <div className="p-4 space-y-1.5 font-ml">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2">
+              പേജുകൾ
             </p>
 
-            <button
-              onClick={() => handleSelect('operations')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all text-left ${
-                activeTab === 'operations'
-                  ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Layers className="w-5 h-5" />
-              <span>സേവനങ്ങൾ & നിരക്കുകൾ</span>
-            </button>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.to === '/' 
+                ? location.pathname === '/' 
+                : location.pathname.startsWith(item.to);
 
-            <button
-              onClick={() => handleSelect('settings')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all text-left ${
-                activeTab === 'settings'
-                  ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-                  : 'text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>ക്രമീകരണങ്ങൾ (Settings)</span>
-            </button>
+              return (
+                <button
+                  key={item.to}
+                  onClick={() => handleNavigate(item.to)}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-all text-left ${
+                    isActive
+                      ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+                      : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

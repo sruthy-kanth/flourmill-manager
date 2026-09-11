@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, 
   Receipt, 
@@ -18,9 +19,6 @@ interface DashboardViewProps {
   operations: Operation[];
   loading: boolean;
   onRefresh: () => void;
-  onSelectOperationForNewEntry: (operationId: string) => void;
-  onGoToHistory: () => void;
-  onGoToNewEntry: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -28,11 +26,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   operations,
   loading,
   onRefresh,
-  onSelectOperationForNewEntry,
-  onGoToHistory,
-  onGoToNewEntry,
 }) => {
+  const navigate = useNavigate();
   const activeOperations = operations.filter(op => op.is_active);
+
+  const handleSelectOperation = (opId: string) => {
+    navigate(`/new-entry?op=${encodeURIComponent(opId)}`);
+  };
 
   return (
     <div className="space-y-6 pb-12">
@@ -135,15 +135,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {activeOperations.length === 0 ? (
-          <div className="text-center py-6 text-slate-500 font-ml">
-            സേവനങ്ങളൊന്നും സജീവമല്ല. ക്രമീകരണങ്ങളിൽ നിന്ന് ചേർക്കുക.
+          <div className="text-center py-6 text-slate-500 font-ml space-y-2">
+            <p>സേവനങ്ങളൊന്നും നിലവിലില്ല.</p>
+            <button
+              onClick={() => navigate('/operations')}
+              className="text-xs text-amber-700 font-bold underline"
+            >
+              സേവനങ്ങൾ ചേർക്കുക
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {activeOperations.map((op) => (
               <button
                 key={op.id}
-                onClick={() => onSelectOperationForNewEntry(op.id)}
+                onClick={() => handleSelectOperation(op.id)}
                 className="group relative flex flex-col justify-between p-4 rounded-xl bg-gradient-to-br from-amber-50/70 to-orange-50/30 border border-amber-200/80 hover:border-amber-400 hover:shadow-md hover:bg-amber-100/60 transition-all text-left active:scale-[0.98] touch-action-manipulation"
               >
                 <div>
@@ -178,7 +184,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </h3>
           </div>
           <button
-            onClick={onGoToHistory}
+            onClick={() => navigate('/history')}
             className="flex items-center gap-1 text-sm font-semibold text-amber-700 hover:text-amber-800 font-ml"
           >
             <span>എല്ലാം കാണുക</span>
@@ -193,7 +199,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ഇടപാടുകളൊന്നും രേഖപ്പെടുത്തിയിട്ടില്ല
             </p>
             <button
-              onClick={onGoToNewEntry}
+              onClick={() => navigate('/new-entry')}
               className="mt-3 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-semibold hover:bg-amber-700 font-ml shadow-sm"
             >
               ആദ്യ ഇടപാട് രേഖപ്പെടുത്തുക

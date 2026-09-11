@@ -1,22 +1,20 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, Database, CheckCircle2, AlertCircle, Plus } from 'lucide-react';
-import type { ActiveTab } from '../types';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 interface NavbarProps {
   millName: string;
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
   onOpenMobileMenu: () => void;
-  onOpenNewTransaction: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   millName,
-  setActiveTab,
   onOpenMobileMenu,
-  onOpenNewTransaction,
 }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -33,7 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             <div 
               className="flex items-center gap-2.5 cursor-pointer"
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => navigate('/')}
             >
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 to-amber-500 text-white flex items-center justify-center text-xl shadow-md shadow-amber-500/20">
                 🌾
@@ -51,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Supabase Status Pill */}
             <button
-              onClick={() => setActiveTab('settings')}
+              onClick={() => navigate('/settings')}
               className={`hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
                 isSupabaseConfigured
                   ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
@@ -69,13 +67,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Quick New Entry Button */}
-            <button
-              onClick={onOpenNewTransaction}
-              className="flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white font-semibold text-sm rounded-xl shadow-sm shadow-amber-600/30 transition-all transform active:scale-95 touch-action-manipulation"
-            >
-              <Plus className="w-4 h-4" />
-              <span>പുതിയ എൻട്രി</span>
-            </button>
+            {location.pathname !== '/new-entry' && (
+              <button
+                onClick={() => navigate('/new-entry')}
+                className="flex items-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white font-semibold text-sm rounded-xl shadow-sm shadow-amber-600/30 transition-all transform active:scale-95 touch-action-manipulation"
+              >
+                <Plus className="w-4 h-4" />
+                <span>പുതിയ എൻട്രി</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

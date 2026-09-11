@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { 
   Home, 
   PlusCircle, 
@@ -8,25 +9,19 @@ import {
   Settings, 
   ShieldAlert
 } from 'lucide-react';
-import type { ActiveTab } from '../types';
 import { isSupabaseConfigured } from '../lib/supabase';
 
-interface SidebarProps {
-  activeTab: ActiveTab;
-  setActiveTab: (tab: ActiveTab) => void;
-}
-
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC = () => {
   const primaryNavItems = [
-    { id: 'dashboard' as ActiveTab, label: 'ഹോം (Dashboard)', icon: Home },
-    { id: 'new-entry' as ActiveTab, label: 'പുതിയ എൻട്രി', icon: PlusCircle },
-    { id: 'history' as ActiveTab, label: 'ഇടപാടുകൾ (History)', icon: Receipt },
-    { id: 'statement' as ActiveTab, label: 'സ്റ്റേറ്റ്മെന്റ് (Monthly)', icon: BarChart3 },
+    { to: '/', label: 'ഹോം (Dashboard)', icon: Home, end: true },
+    { to: '/new-entry', label: 'പുതിയ എൻട്രി', icon: PlusCircle },
+    { to: '/history', label: 'ഇടപാടുകൾ (History)', icon: Receipt },
+    { to: '/statement', label: 'സ്റ്റേറ്റ്മെന്റ് (Monthly)', icon: BarChart3 },
   ];
 
   const secondaryNavItems = [
-    { id: 'operations' as ActiveTab, label: 'സേവനങ്ങൾ & നിരക്കുകൾ', icon: Layers },
-    { id: 'settings' as ActiveTab, label: 'ക്രമീകരണങ്ങൾ (Settings)', icon: Settings },
+    { to: '/operations', label: 'സേവനങ്ങൾ & നിരക്കുകൾ', icon: Layers },
+    { to: '/settings', label: 'ക്രമീകരണങ്ങൾ (Settings)', icon: Settings },
   ];
 
   return (
@@ -40,20 +35,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           <nav className="space-y-1">
             {primaryNavItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                    isActive
-                      ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                      isActive
+                        ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`
+                  }
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                  <span className="font-ml">{item.label}</span>
-                </button>
+                  {({ isActive }) => (
+                    <>
+                      <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                      <span className="font-ml">{item.label}</span>
+                    </>
+                  )}
+                </NavLink>
               );
             })}
           </nav>
@@ -67,20 +68,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           <nav className="space-y-1">
             {secondaryNavItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
               return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all ${
-                    isActive
-                      ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all ${
+                      isActive
+                        ? 'bg-amber-500 text-white font-semibold shadow-sm shadow-amber-500/30'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    }`
+                  }
                 >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
-                  <span className="font-ml">{item.label}</span>
-                </button>
+                  {({ isActive }) => (
+                    <>
+                      <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-500'}`} />
+                      <span className="font-ml">{item.label}</span>
+                    </>
+                  )}
+                </NavLink>
               );
             })}
           </nav>

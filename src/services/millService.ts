@@ -2,17 +2,6 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { Mill, Operation, Customer, Transaction, DashboardStats, MonthlyStats } from '../types';
 import { getTodayDateString, MALAYALAM_MONTHS } from '../utils/malayalam';
 
-// Pre-seeded Initial Operations required by the user
-export const INITIAL_OPERATIONS_SEED = [
-  { name_ml: 'അരി പൊടിക്കാൻ', unit: 'കിലോ', price_per_unit: 12.00, is_active: true },
-  { name_ml: 'ഗോതമ്പ് പൊടിക്കാൻ', unit: 'കിലോ', price_per_unit: 14.00, is_active: true },
-  { name_ml: 'മുളക് പൊടിക്കാൻ', unit: 'കിലോ', price_per_unit: 35.00, is_active: true },
-  { name_ml: 'മഞ്ഞൾ പൊടിക്കാൻ', unit: 'കിലോ', price_per_unit: 40.00, is_active: true },
-  { name_ml: 'തേങ്ങ ആട്ടിക്കാൻ', unit: 'കിലോ', price_per_unit: 25.00, is_active: true },
-  { name_ml: 'അരി വറുക്കാൻ', unit: 'കിലോ', price_per_unit: 15.00, is_active: true },
-  { name_ml: 'അവലോസ് വറുക്കാൻ', unit: 'കിലോ', price_per_unit: 20.00, is_active: true },
-];
-
 const LOCAL_STORAGE_KEYS = {
   MILL: 'MILL_STORE_MILL',
   OPERATIONS: 'MILL_STORE_OPERATIONS',
@@ -20,7 +9,7 @@ const LOCAL_STORAGE_KEYS = {
   TRANSACTIONS: 'MILL_STORE_TRANSACTIONS',
 };
 
-// Helper for generating UUIDs in local mock mode
+// Helper for generating UUIDs in local fallback mode
 function generateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -32,151 +21,105 @@ function generateUUID(): string {
   });
 }
 
-// Ensure Local Storage initial state
+// Initial clean store without fake transactions
 function initLocalStore() {
   if (typeof window === 'undefined') return;
 
-  // Initialize Mill
-  let millStr = localStorage.getItem(LOCAL_STORAGE_KEYS.MILL);
-  let mill: Mill;
-  if (!millStr) {
-    mill = {
-      id: 'default-mill-001',
+  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.MILL)) {
+    const defaultMill: Mill = {
+      id: generateUUID(),
       name: 'ശ്രീ മില്ല് (Flour Mill)',
       created_at: new Date().toISOString(),
     };
-    localStorage.setItem(LOCAL_STORAGE_KEYS.MILL, JSON.stringify(mill));
-  } else {
-    mill = JSON.parse(millStr);
+    localStorage.setItem(LOCAL_STORAGE_KEYS.MILL, JSON.stringify(defaultMill));
   }
 
-  // Initialize Operations
-  let opsStr = localStorage.getItem(LOCAL_STORAGE_KEYS.OPERATIONS);
-  if (!opsStr) {
-    const defaultOps: Operation[] = INITIAL_OPERATIONS_SEED.map((op, idx) => ({
-      id: `op-seed-${idx + 1}`,
-      mill_id: mill.id,
-      name_ml: op.name_ml,
-      unit: op.unit,
-      price_per_unit: op.price_per_unit,
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }));
-    localStorage.setItem(LOCAL_STORAGE_KEYS.OPERATIONS, JSON.stringify(defaultOps));
+  if (!localStorage.getItem(LOCAL_STORAGE_KEYS.OPERATIONS)) {
+    localStorage.setItem(LOCAL_STORAGE_KEYS.OPERATIONS, JSON.stringify([]));
   }
 
-  // Initialize Customers & Transactions if not present
   if (!localStorage.getItem(LOCAL_STORAGE_KEYS.CUSTOMERS)) {
     localStorage.setItem(LOCAL_STORAGE_KEYS.CUSTOMERS, JSON.stringify([]));
   }
+
   if (!localStorage.getItem(LOCAL_STORAGE_KEYS.TRANSACTIONS)) {
-    // Seed a couple sample transactions for today to show rich immediate experience
-    const ops: Operation[] = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.OPERATIONS) || '[]');
-    const today = getTodayDateString();
-    
-    if (ops.length >= 3) {
-      const sampleTransactions: Transaction[] = [
-        {
-          id: generateUUID(),
-          mill_id: mill.id,
-          operation_id: ops[0].id,
-          transaction_date: today,
-          quantity: 10,
-          unit_price: ops[0].price_per_unit,
-          total_amount: 10 * ops[0].price_per_unit,
-          notes: 'നല്ല പോലെ പൊടിക്കുക',
-          created_at: new Date(Date.now() - 3600000 * 3).toISOString(),
-        },
-        {
-          id: generateUUID(),
-          mill_id: mill.id,
-          operation_id: ops[2].id,
-          transaction_date: today,
-          quantity: 2,
-          unit_price: ops[2].price_per_unit,
-          total_amount: 2 * ops[2].price_per_unit,
-          notes: null,
-          created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-        }
-      ];
-      localStorage.setItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, JSON.stringify(sampleTransactions));
-    } else {
-      localStorage.setItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, JSON.stringify([]));
-    }
+    localStorage.setItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, JSON.stringify([]));
   }
 }
 
-// Call initLocalStore once
 initLocalStore();
 
 export const MillService = {
   /**
-   * Get or initialize the primary mill
+   * Fetch mill from database
    */
   async getMill(): Promise<Mill> {
     if (isSupabaseConfigured && supabase) {
       try {
-        const { data, error } = await supabase.from('mills').select('*').limit(1).single();
+        const { data, error } = await supabase
+          .from('mills')
+          .select('*')
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
         if (data && !error) return data as Mill;
-        
-        // If table is empty, insert default mill
+
+        // If DB table is empty, create the mill record
         const { data: newMill, error: insertError } = await supabase
           .from('mills')
           .insert([{ name: 'ശ്രീ മില്ല് (Flour Mill)' }])
           .select()
           .single();
-        
+
         if (newMill && !insertError) {
-          // Also seed initial operations in Supabase
-          const opsWithMill = INITIAL_OPERATIONS_SEED.map(op => ({
-            ...op,
-            mill_id: newMill.id
-          }));
-          await supabase.from('operations').insert(opsWithMill);
           return newMill as Mill;
         }
-      } catch (e) {
-        console.warn('Supabase getMill failed, falling back to local store:', e);
+      } catch (err) {
+        console.error('Error fetching mill from Supabase DB:', err);
       }
     }
 
-    // Local Fallback
+    // Local Storage
     const millStr = localStorage.getItem(LOCAL_STORAGE_KEYS.MILL);
     return millStr ? JSON.parse(millStr) : {
-      id: 'default-mill-001',
-      name: 'ശ്രീ മില്ല് (Flour Mill)',
-      created_at: new Date().toISOString()
+      id: 'default-mill',
+      name: 'ശ്രീ മില്ല്',
+      created_at: new Date().toISOString(),
     };
   },
 
   /**
-   * Update mill name
+   * Update mill name in database
    */
   async updateMillName(name: string): Promise<Mill> {
     const mill = await this.getMill();
+    
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
           .from('mills')
-          .update({ name })
+          .update({ name: name.trim() })
           .eq('id', mill.id)
           .select()
           .single();
+
         if (data && !error) return data as Mill;
-      } catch (e) {
-        console.warn('Supabase updateMillName error:', e);
+        if (error) throw error;
+      } catch (err) {
+        console.error('Error updating mill in Supabase DB:', err);
+        throw err;
       }
     }
 
     // Local
-    const updated = { ...mill, name };
+    const updated = { ...mill, name: name.trim() };
     localStorage.setItem(LOCAL_STORAGE_KEYS.MILL, JSON.stringify(updated));
     return updated;
   },
 
   /**
-   * Get all operations
+   * Fetch operations from database
    */
   async getOperations(includeInactive: boolean = false): Promise<Operation[]> {
     if (isSupabaseConfigured && supabase) {
@@ -187,15 +130,16 @@ export const MillService = {
           .select('*')
           .eq('mill_id', mill.id)
           .order('created_at', { ascending: true });
-        
+
         if (!includeInactive) {
           query = query.eq('is_active', true);
         }
 
         const { data, error } = await query;
         if (data && !error) return data as Operation[];
-      } catch (e) {
-        console.warn('Supabase getOperations error, using local:', e);
+        if (error) console.warn('Operations query returned error:', error);
+      } catch (err) {
+        console.error('Error fetching operations from Supabase DB:', err);
       }
     }
 
@@ -207,11 +151,11 @@ export const MillService = {
   },
 
   /**
-   * Add a new operation
+   * Add a new operation to database
    */
   async addOperation(opData: { name_ml: string; unit: string; price_per_unit: number }): Promise<Operation> {
     const mill = await this.getMill();
-    
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
@@ -225,11 +169,12 @@ export const MillService = {
           }])
           .select()
           .single();
-        
+
         if (data && !error) return data as Operation;
         if (error) throw error;
-      } catch (e) {
-        console.warn('Supabase addOperation error, falling to local:', e);
+      } catch (err) {
+        console.error('Error adding operation to Supabase DB:', err);
+        throw err;
       }
     }
 
@@ -252,7 +197,7 @@ export const MillService = {
   },
 
   /**
-   * Update operation (price, unit, name, or active status)
+   * Update operation in database
    */
   async updateOperation(id: string, updates: Partial<Operation>): Promise<Operation> {
     if (isSupabaseConfigured && supabase) {
@@ -266,10 +211,12 @@ export const MillService = {
           .eq('id', id)
           .select()
           .single();
+
         if (data && !error) return data as Operation;
         if (error) throw error;
-      } catch (e) {
-        console.warn('Supabase updateOperation error:', e);
+      } catch (err) {
+        console.error('Error updating operation in Supabase DB:', err);
+        throw err;
       }
     }
 
@@ -278,7 +225,7 @@ export const MillService = {
     const ops: Operation[] = opsStr ? JSON.parse(opsStr) : [];
     const index = ops.findIndex(o => o.id === id);
     if (index === -1) throw new Error('സേവനം കണ്ടെത്താനായില്ല');
-    
+
     ops[index] = {
       ...ops[index],
       ...updates,
@@ -289,7 +236,7 @@ export const MillService = {
   },
 
   /**
-   * Helper: Get or Create Customer by Phone
+   * Get or create customer in database
    */
   async getOrCreateCustomer(millId: string, phone?: string | null): Promise<Customer | null> {
     const cleanPhone = phone ? phone.trim() : null;
@@ -297,26 +244,24 @@ export const MillService = {
 
     if (isSupabaseConfigured && supabase) {
       try {
-        // Check if customer exists
         const { data: existing } = await supabase
           .from('customers')
           .select('*')
           .eq('mill_id', millId)
           .eq('phone', cleanPhone)
           .maybeSingle();
-        
+
         if (existing) return existing as Customer;
 
-        // Create new customer
         const { data: newCust, error } = await supabase
           .from('customers')
           .insert([{ mill_id: millId, phone: cleanPhone }])
           .select()
           .single();
-        
+
         if (newCust && !error) return newCust as Customer;
-      } catch (e) {
-        console.warn('Supabase customer lookup error:', e);
+      } catch (err) {
+        console.error('Error in getOrCreateCustomer in Supabase DB:', err);
       }
     }
 
@@ -339,7 +284,7 @@ export const MillService = {
   },
 
   /**
-   * Create a new transaction with locked unit_price & total_amount
+   * Save transaction in database
    */
   async createTransaction(payload: {
     operation_id: string;
@@ -359,7 +304,6 @@ export const MillService = {
       throw new Error('നിരക്ക് സാധുവായ ഒന്നായിരിക്കണം');
     }
 
-    // Calculated total
     const totalAmount = Number((payload.quantity * payload.unit_price).toFixed(2));
 
     let customer: Customer | null = null;
@@ -383,15 +327,16 @@ export const MillService = {
           }])
           .select('*, operation:operations(*), customer:customers(*)')
           .single();
-        
+
         if (data && !error) return data as Transaction;
         if (error) throw error;
-      } catch (e) {
-        console.warn('Supabase createTransaction failed, fallback to local:', e);
+      } catch (err) {
+        console.error('Error inserting transaction in Supabase DB:', err);
+        throw err;
       }
     }
 
-    // Local Store
+    // Local
     const transStr = localStorage.getItem(LOCAL_STORAGE_KEYS.TRANSACTIONS);
     const transactions: Transaction[] = transStr ? JSON.parse(transStr) : [];
     const ops = await this.getOperations(true);
@@ -419,7 +364,7 @@ export const MillService = {
   },
 
   /**
-   * Get Transactions with filters
+   * Fetch transactions directly from database with filters
    */
   async getTransactions(filters?: {
     date?: string;
@@ -460,8 +405,9 @@ export const MillService = {
           }
           return results;
         }
-      } catch (e) {
-        console.warn('Supabase getTransactions error, fallback to local:', e);
+        if (error) console.warn('Supabase getTransactions query error:', error);
+      } catch (err) {
+        console.error('Error fetching transactions from Supabase DB:', err);
       }
     }
 
@@ -472,7 +418,6 @@ export const MillService = {
     const custStr = localStorage.getItem(LOCAL_STORAGE_KEYS.CUSTOMERS);
     const customers: Customer[] = custStr ? JSON.parse(custStr) : [];
 
-    // Populate joined relations
     list = list.map(t => ({
       ...t,
       operation: ops.find(o => o.id === t.operation_id),
@@ -504,7 +449,7 @@ export const MillService = {
   },
 
   /**
-   * Update Transaction
+   * Update transaction in database
    */
   async updateTransaction(id: string, updates: {
     quantity: number;
@@ -544,8 +489,9 @@ export const MillService = {
 
         if (data && !error) return data as Transaction;
         if (error) throw error;
-      } catch (e) {
-        console.warn('Supabase updateTransaction failed:', e);
+      } catch (err) {
+        console.error('Error updating transaction in Supabase DB:', err);
+        throw err;
       }
     }
 
@@ -568,7 +514,6 @@ export const MillService = {
 
     localStorage.setItem(LOCAL_STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
     
-    // Return with relations
     const ops = await this.getOperations(true);
     const op = ops.find(o => o.id === transactions[index].operation_id);
     return {
@@ -579,7 +524,7 @@ export const MillService = {
   },
 
   /**
-   * Delete Transaction
+   * Delete transaction from database
    */
   async deleteTransaction(id: string): Promise<boolean> {
     if (isSupabaseConfigured && supabase) {
@@ -587,8 +532,9 @@ export const MillService = {
         const { error } = await supabase.from('transactions').delete().eq('id', id);
         if (error) throw error;
         return true;
-      } catch (e) {
-        console.warn('Supabase deleteTransaction failed:', e);
+      } catch (err) {
+        console.error('Error deleting transaction from Supabase DB:', err);
+        throw err;
       }
     }
 
@@ -601,7 +547,7 @@ export const MillService = {
   },
 
   /**
-   * Dashboard Statistics
+   * Compute Dashboard statistics strictly from database data
    */
   async getDashboardStats(): Promise<DashboardStats> {
     const today = getTodayDateString();
@@ -610,7 +556,6 @@ export const MillService = {
     const todayIncome = todayTransactions.reduce((acc, curr) => acc + Number(curr.total_amount || 0), 0);
     const uniqueOps = new Set(todayTransactions.map(t => t.operation_id));
 
-    // Also get the 5 most recent transactions overall
     const allRecent = await this.getTransactions();
     const recentTransactions = allRecent.slice(0, 5);
 
@@ -623,11 +568,10 @@ export const MillService = {
   },
 
   /**
-   * Monthly Statement Statistics
+   * Compute Monthly statement strictly from database transactions
    */
   async getMonthlyStats(year: number, month: number): Promise<MonthlyStats> {
     const startStr = `${year}-${month.toString().padStart(2, '0')}-01`;
-    // Last day of month
     const lastDay = new Date(year, month, 0).getDate();
     const endStr = `${year}-${month.toString().padStart(2, '0')}-${lastDay.toString().padStart(2, '0')}`;
 
@@ -639,7 +583,6 @@ export const MillService = {
     const totalIncome = monthTransactions.reduce((sum, t) => sum + Number(t.total_amount || 0), 0);
     const totalTransactions = monthTransactions.length;
 
-    // Operation-wise breakdown
     const ops = await this.getOperations(true);
     const opMap = new Map<string, {
       operationId: string;
@@ -649,7 +592,6 @@ export const MillService = {
       totalRevenue: number;
     }>();
 
-    // Initialize map with known operations
     ops.forEach(op => {
       opMap.set(op.id, {
         operationId: op.id,
@@ -684,10 +626,8 @@ export const MillService = {
       }))
       .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
-    // Daily breakdown for the month
     const dailyMap = new Map<string, { totalAmount: number; count: number }>();
     
-    // Seed days in descending or chronological order
     monthTransactions.forEach(t => {
       const curr = dailyMap.get(t.transaction_date) || { totalAmount: 0, count: 0 };
       curr.totalAmount += Number(t.total_amount || 0);
@@ -706,7 +646,7 @@ export const MillService = {
           transactionCount: data.count,
         };
       })
-      .sort((a, b) => b.date.localeCompare(a.date)); // Latest date first
+      .sort((a, b) => b.date.localeCompare(a.date));
 
     return {
       year,

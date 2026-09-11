@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { ActiveTab, Mill, Operation, Transaction, DashboardStats } from './types';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import type { Mill, Operation, Transaction, DashboardStats } from './types';
 import { MillService } from './services/millService';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -17,7 +18,6 @@ import { OperationsView } from './views/OperationsView';
 import { SettingsView } from './views/SettingsView';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [mill, setMill] = useState<Mill | null>(null);
   const [operations, setOperations] = useState<Operation[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -25,7 +25,6 @@ export function App() {
   
   const [loading, setLoading] = useState<boolean>(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
-  const [preSelectedOperationId, setPreSelectedOperationId] = useState<string | null>(null);
   
   // Toast notifications
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -42,7 +41,7 @@ export function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // Load all core data
+  // Load all core data from DB
   const loadInitialData = useCallback(async () => {
     setLoading(true);
     try {
@@ -58,8 +57,8 @@ export function App() {
       setDashboardStats(currentStats);
       setTransactions(currentTxs);
     } catch (err: any) {
-      console.error('Error loading mill data:', err);
-      addToast('error', 'ഡാറ്റ ലോഡ് ചെയ്യുന്നതിൽ തടസ്സം നേരിട്ടു.');
+      console.error('Error loading mill data from database:', err);
+      addToast('error', 'ഡാറ്റാബേസിൽ നിന്ന് ഡാറ്റ ലോഡ് ചെയ്യുന്നതിൽ തടസ്സം നേരിട്ടു.');
     } finally {
       setLoading(false);
     }
@@ -69,13 +68,7 @@ export function App() {
     loadInitialData();
   }, [loadInitialData]);
 
-  // Handle Quick Operation Click from Dashboard
-  const handleSelectQuickOperation = (opId: string) => {
-    setPreSelectedOperationId(opId);
-    setActiveTab('new-entry');
-  };
-
-  // Handle Submitting New Transaction
+  // Handle Submitting New Transaction to DB
   const handleCreateTransaction = async (data: {
     operation_id: string;
     quantity: number;
@@ -87,9 +80,8 @@ export function App() {
   }) => {
     try {
       await MillService.createTransaction(data);
-      addToast('success', 'ഇടപാട് വിജയകരമായി രേഖപ്പെടുത്തി!');
+      addToast('success', 'ഇടപാട് ഡാറ്റാബേസിൽ വിജയകരമായി രേഖപ്പെടുത്തി!');
       
-      // Refresh state
       const [stats, txs] = await Promise.all([
         MillService.getDashboardStats(),
         MillService.getTransactions(),
@@ -102,7 +94,7 @@ export function App() {
     }
   };
 
-  // Handle Editing Transaction
+  // Handle Editing Transaction in DB
   const handleEditTransaction = async (id: string, updates: {
     quantity: number;
     unit_price: number;
@@ -125,7 +117,7 @@ export function App() {
     }
   };
 
-  // Handle Deleting Transaction with Confirmation
+  // Handle Deleting Transaction from DB
   const handleConfirmDelete = async () => {
     if (!deleteTransactionId) return;
 
@@ -145,7 +137,7 @@ export function App() {
     }
   };
 
-  // Handle Adding New Operation
+  // Handle Adding New Operation to DB
   const handleAddOperation = async (op: { name_ml: string; unit: string; price_per_unit: number }) => {
     try {
       await MillService.addOperation(op);
@@ -157,7 +149,7 @@ export function App() {
     }
   };
 
-  // Handle Updating Operation
+  // Handle Updating Operation in DB
   const handleUpdateOperation = async (id: string, updates: Partial<Operation>) => {
     try {
       await MillService.updateOperation(id, updates);
@@ -169,7 +161,7 @@ export function App() {
     }
   };
 
-  // Handle Updating Mill Name
+  // Handle Updating Mill Name in DB
   const handleUpdateMillName = async (name: string) => {
     try {
       const updated = await MillService.updateMillName(name);
@@ -181,130 +173,122 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
-      {/* Toast Notifications */}
-      <Toast toasts={toasts} onDismiss={removeToast} />
+    <BrowserRouter>
+      <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">
+        {/* Toast Notifications */}
+        <Toast toasts={toasts} onDismiss={removeToast} />
 
-      {/* Confirmation Modal for Delete */}
-      <ConfirmModal
-        isOpen={Boolean(deleteTransactionId)}
-        title="ഇടപാട് ഇല്ലാതാക്കുക"
-        message="ഈ ഇടപാട് ഇല്ലാതാക്കണോ?"
-        confirmText="അതെ, ഇല്ലാതാക്കുക"
-        cancelText="റദ്ദാക്കുക"
-        isDestructive={true}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTransactionId(null)}
-      />
-
-      {/* Top Navbar */}
-      <Navbar
-        millName={mill?.name || 'ശ്രീ മില്ല്'}
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setPreSelectedOperationId(null);
-          setActiveTab(tab);
-        }}
-        onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
-        onOpenNewTransaction={() => {
-          setPreSelectedOperationId(null);
-          setActiveTab('new-entry');
-        }}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
-        {/* Desktop Sidebar */}
-        <Sidebar
-          activeTab={activeTab}
-          setActiveTab={(tab) => {
-            setPreSelectedOperationId(null);
-            setActiveTab(tab);
-          }}
+        {/* Confirmation Modal for Delete */}
+        <ConfirmModal
+          isOpen={Boolean(deleteTransactionId)}
+          title="ഇടപാട് ഇല്ലാതാക്കുക"
+          message="ഈ ഇടപാട് ഇല്ലാതാക്കണോ?"
+          confirmText="അതെ, ഇല്ലാതാക്കുക"
+          cancelText="റദ്ദാക്കുക"
+          isDestructive={true}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTransactionId(null)}
         />
 
-        {/* Dynamic Page Views */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-y-auto">
-          {activeTab === 'dashboard' && (
-            <DashboardView
-              stats={dashboardStats}
-              operations={operations}
-              loading={loading}
-              onRefresh={loadInitialData}
-              onSelectOperationForNewEntry={handleSelectQuickOperation}
-              onGoToHistory={() => setActiveTab('history')}
-              onGoToNewEntry={() => {
-                setPreSelectedOperationId(null);
-                setActiveTab('new-entry');
-              }}
-            />
-          )}
+        {/* Top Navbar */}
+        <Navbar
+          millName={mill?.name || 'ശ്രീ മില്ല്'}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        />
 
-          {activeTab === 'new-entry' && (
-            <NewTransactionView
-              operations={operations}
-              preSelectedOperationId={preSelectedOperationId}
-              onSubmitTransaction={handleCreateTransaction}
-              onCancel={() => setActiveTab('dashboard')}
-              onSuccessNavigate={() => setActiveTab('history')}
-            />
-          )}
+        {/* Main Content Area */}
+        <div className="flex-1 flex max-w-7xl w-full mx-auto">
+          {/* Desktop Sidebar */}
+          <Sidebar />
 
-          {activeTab === 'history' && (
-            <HistoryView
-              transactions={transactions}
-              operations={operations}
-              onEditTransaction={handleEditTransaction}
-              onGoToNewEntry={() => {
-                setPreSelectedOperationId(null);
-                setActiveTab('new-entry');
-              }}
-              onRequestConfirmDelete={(txId) => setDeleteTransactionId(txId)}
-            />
-          )}
+          {/* Dynamic Page Routed Views */}
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 overflow-y-auto">
+            <Routes>
+              {/* Home / Dashboard Route */}
+              <Route
+                path="/"
+                element={
+                  <DashboardView
+                    stats={dashboardStats}
+                    operations={operations}
+                    loading={loading}
+                    onRefresh={loadInitialData}
+                  />
+                }
+              />
+              <Route path="/dashboard" element={<Navigate to="/" replace />} />
 
-          {activeTab === 'statement' && (
-            <StatementView />
-          )}
+              {/* New Transaction Route */}
+              <Route
+                path="/new-entry"
+                element={
+                  <NewTransactionView
+                    operations={operations}
+                    onSubmitTransaction={handleCreateTransaction}
+                  />
+                }
+              />
 
-          {activeTab === 'operations' && (
-            <OperationsView
-              operations={operations}
-              onAddOperation={handleAddOperation}
-              onUpdateOperation={handleUpdateOperation}
-            />
-          )}
+              {/* History / Transactions Route */}
+              <Route
+                path="/history"
+                element={
+                  <HistoryView
+                    transactions={transactions}
+                    operations={operations}
+                    onEditTransaction={handleEditTransaction}
+                    onRequestConfirmDelete={(txId) => setDeleteTransactionId(txId)}
+                  />
+                }
+              />
+              <Route path="/transactions" element={<Navigate to="/history" replace />} />
 
-          {activeTab === 'settings' && (
-            <SettingsView
-              millName={mill?.name || ''}
-              onUpdateMillName={handleUpdateMillName}
-            />
-          )}
-        </main>
+              {/* Monthly Statement Route */}
+              <Route
+                path="/statement"
+                element={<StatementView />}
+              />
+
+              {/* Operations & Pricing Route */}
+              <Route
+                path="/operations"
+                element={
+                  <OperationsView
+                    operations={operations}
+                    onAddOperation={handleAddOperation}
+                    onUpdateOperation={handleUpdateOperation}
+                  />
+                }
+              />
+
+              {/* Settings Route */}
+              <Route
+                path="/settings"
+                element={
+                  <SettingsView
+                    millName={mill?.name || ''}
+                    onUpdateMillName={handleUpdateMillName}
+                  />
+                }
+              />
+
+              {/* Fallback to Home */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
+
+        {/* Mobile Drawer */}
+        <MobileDrawer
+          isOpen={isMobileMenuOpen}
+          onClose={() => setIsMobileMenuOpen(false)}
+          millName={mill?.name || ''}
+        />
+
+        {/* Mobile Bottom Navigation Bar */}
+        <BottomNav />
       </div>
-
-      {/* Mobile Drawer */}
-      <MobileDrawer
-        isOpen={isMobileMenuOpen}
-        onClose={() => setIsMobileMenuOpen(false)}
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setPreSelectedOperationId(null);
-          setActiveTab(tab);
-        }}
-        millName={mill?.name || ''}
-      />
-
-      {/* Mobile Bottom Navigation Bar */}
-      <BottomNav
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setPreSelectedOperationId(null);
-          setActiveTab(tab);
-        }}
-      />
-    </div>
+    </BrowserRouter>
   );
 }
 
